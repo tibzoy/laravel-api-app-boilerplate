@@ -12,39 +12,69 @@ use Illuminate\Http\Request;
 | is assigned the "api" middleware group. Enjoy building your API!
 |
 */
+// Public
+Route::post('signup','AuthController@signup');
+Route::get('activate/{token}','AuthController@preActivate');
+Route::put('activate/{token}','AuthController@activate');
+Route::post('password/recovery','AuthController@recoverPasswordStep1');
+Route::get('password/recovery/{token}','AuthController@recoverPasswordStep2');
+Route::put('password/recovery/{token}','AuthController@resetPassword');
+Route::post('login','AuthController@login');
 
-// /api/auth/* path
+
+// Authenticated
 Route::group([
-    'prefix' => 'auth',
+    'middleware' => 'auth:api',
 ], function ()
 {
-    // public endpoints
-    Route::post('signup','AuthController@signup');
-    Route::get('activate/{token}','AuthController@preActivate');
-    Route::put('activate/{token}','AuthController@activate');
-    Route::post('password/recovery','AuthController@recoverPasswordStep1');
-    Route::get('password/recovery/{token}','AuthController@recoverPasswordStep2');
-    Route::put('password/recovery/{token}','AuthController@resetPassword');
-    Route::post('login','AuthController@login');
+    // All users
+    Route::get('myprofile','AuthController@getUser');
+    Route::get('logout','AuthController@logout');
 
-    // protected endpoints
+    // Role-based
+
+    // Administration
     Route::group([
-        'middleware' => 'auth:api',
-    ], function ()
-    {
-        Route::get('user','AuthController@getUser');
-        Route::get('logout','AuthController@logout');
-    });
+        'prefix' => 'admin',
+        'middleware' => 'roles',
+        'roles' => 'Administrator'
+        ],
+        function()
+        {
+            // Users
+            Route::get('/users', 'UserController@getUsers');
+            Route::get('users/{user}', 'UserController@getUser');
+            Route::put('users/{user}', 'UserController@update');
+            Route::put('users/{user}/deactivate', 'UserController@deactivate');
+            Route::put('users/{user}/activate', 'UserController@activate');
+        }
+    );
 });
 
-// api/users path
-Route::group(['prefix' => 'users','middleware' => 'auth:api'],
-    function()
+// Tests
+Route::group([
+    'prefix' => 'test/roles',
+    'middleware' => ['auth:api','roles']
+], function()
+{
+    Route::group([
+        'roles' => 'Administrator'
+    ], function()
     {
-        Route::get('/', 'UserController@getUsers');
-        Route::get('/{user}', 'UserController@getUser');
-        Route::put('/{user}', 'UserController@update');
-        Route::put('/{user}/deactivate', 'UserController@deactivate');
-        Route::put('/{user}/activate', 'UserController@activate');
-    }
-);
+        Route::get('isadmin', 'TestController@isAdmin');
+    });
+
+    Route::group([
+        'roles' => 'Head'
+    ], function()
+    {
+        Route::get('ishead', 'TestController@isHead');
+    });
+
+    Route::group([
+        // 'roles' => 'Any'
+    ], function()
+    {
+        Route::get('isany', 'TestController@isAny');
+    });
+});
